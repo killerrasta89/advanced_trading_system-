@@ -1,0 +1,106 @@
+advanced_trading_system/
+├── main.py                     # Fő alkalmazás
+├── config/                     # Konfigurációs fájlok
+│   ├── settings.py
+│   ├── strategy_config.py
+│   ├── exchange_config.py
+│   ├── risk_config.py
+│   ├── notification_config.py
+│   └── db_config.py OK
+├── core/                       # Alap komponensek
+│   ├── trading_engine.py OK
+│   ├── order_manager.py OK
+│   ├── portfolio_manager.py OK
+│   ├── market_data_manager.py OK
+│   ├── strategy_manager.py OK
+│   └── execution_engine.py OK
+├── exchanges/                  # Tőzsde integrációk
+│   ├── binance_connector.py OK
+│   ├── kraken_connector.py OK
+│   ├── coinbase_connector.py OK
+│   └── exchange_factory.py OK
+├── strategies/                 # Kereskedési stratégiák
+│   ├── base_strategy.py
+│   ├── grid_trading.py
+│   ├── dca_strategy.py
+│   ├── momentum_strategy.py
+│   ├── mean_reversion.py
+│   └── arbitrage_strategy.py
+├── ai_models/                  # AI/ML modellek
+│   ├── price_predictor.py OK
+│   ├── sentiment_analyzer.py OK
+│   ├── pattern_recognition.py OK
+│   ├── risk_assessor.py  OK
+│   └── market_regime_detector.py OK
+├── risk_management/            # Kockázatkezelés
+│   ├── position_sizer.py OK
+│   ├── risk_calculator.py OK
+│   ├── drawdown_manager.py OK
+│   ├── volatility_manager.py OK
+│   └── correlation_analyzer.py OK
+├── indicators/                 # Technikai indikátorok
+│   ├── technical_indicators.py
+│   ├── custom_indicators.py
+│   ├── volume_indicators.py
+│   └── market_structure.py
+├── backtesting/                # Backtesting
+│   ├── backtest_engine.py
+│   ├── performance_analyzer.py
+│   ├── monte_carlo.py
+│   └── walk_forward_analysis.py
+├── database/                   # Adatbázis kezelés
+│   ├── models.py OK
+│   ├── migrations.py
+│   ├── price_data_handler.py
+│   └── trade_data_handler.py
+├── web_interface/              # Webes felület
+│   ├── app.py OK
+│   ├── api/
+│   ├── templates/
+│   └── static/
+├── monitoring/                 # Monitoring
+│   ├── performance_monitor.py
+│   ├── system_monitor.py
+│   ├── alert_manager.py
+│   └── health_checker.py
+├── utils/                      # Segédfunkciók
+│   ├── logger.py
+│   ├── encryption.py
+│   ├── data_validator.py
+│   ├── math_utils.py
+│   ├── time_utils.py
+│   ├── memory_manager.py OK
+│   ├── cpu_optimizer.py OK
+│   ├── network_manager.py OK
+│   └── storage_optimizer.py OK
+├── notifications/              # Értesítések
+│   ├── telegram_bot.py
+│   ├── discord_bot.py
+│   ├── email_notifier.py
+│   └── webhook_notifier.py
+├── tests/                      # Tesztek
+│   ├── unit_tests/
+│   ├── integration_tests/
+│   └── performance_tests/
+├── scripts/                    # Scriptek
+│   ├── setup.sh
+│   ├── backup.sh
+│   ├── update.sh
+│   ├── maintenance.sh
+│   ├── start.sh OK
+│   ├── stop.sh OK
+│   ├── setup_autostart.sh OK
+│   └── optimize_rpi4_fixed.sh OK
+├── docs/                       # Dokumentáció
+│   ├── api_documentation.md
+│   ├── user_guide.md
+│   ├── deployment_guide.md
+│   └── validation_report.md
+├── docker/                     # Docker konfiguráció
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── requirements.txt
+├── venv/                       # Virtuális környezet
+├── data/                       # Adatok
+├── logs/                       # Naplófájlok
+└── requirements.txt            # Függőségek

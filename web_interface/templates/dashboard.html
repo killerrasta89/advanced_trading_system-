@@ -1,0 +1,548 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Advanced Trading System{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Rendszer állapot kártya -->
+    <div class="card system-status-card">
+        <div class="card-header">
+            <h5 class="card-title">Rendszer állapot</h5>
+            <div class="card-tools">
+                <span class="badge {% if system_status and system_status.status == 'running' %}bg-success{% else %}bg-danger{% endif %}">
+                    {{ system_status.status if system_status else 'offline' }}
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-info"><i class="fas fa-microchip"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">CPU</span>
+                            <span class="info-box-number">{{ cpu_usage|round(1) }}%</span>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ cpu_usage }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-success"><i class="fas fa-memory"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Memória</span>
+                            <span class="info-box-number">{{ memory_usage|round(1) }}%</span>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ memory_usage }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-warning"><i class="fas fa-hdd"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Tárhely</span>
+                            <span class="info-box-number">{{ disk_usage|round(1) }}%</span>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ disk_usage }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <form action="{{ url_for('toggle_engine') }}" method="post">
+                        {% if system_status and system_status.status == 'running' %}
+                            <input type="hidden" name="action" value="stop">
+                            <button type="submit" class="btn btn-danger btn-block">
+                                <i class="fas fa-stop-circle"></i> Trading Engine leállítása
+                            </button>
+                        {% else %}
+                            <input type="hidden" name="action" value="start">
+                            <button type="submit" class="btn btn-success btn-block">
+                                <i class="fas fa-play-circle"></i> Trading Engine indítása
+                            </button>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <a href="{{ url_for('main_bp.monitoring') }}" class="btn btn-info btn-block">
+                        <i class="fas fa-chart-line"></i> Részletes monitoring
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Portfólió összefoglaló kártya -->
+    <div class="card portfolio-summary-card">
+        <div class="card-header">
+            <h5 class="card-title">Portfólió összefoglaló</h5>
+            <div class="card-tools">
+                <a href="{{ url_for('main_bp.portfolio') }}" class="btn btn-tool">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-primary"><i class="fas fa-wallet"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Teljes érték</span>
+                            <span class="info-box-number">${{ portfolio_value|round(2) }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-box">
+                        <span class="info-box-icon {% if portfolio_change >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            <i class="fas {% if portfolio_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">Napi változás</span>
+                            <span class="info-box-number">{{ portfolio_change|round(2) }}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="portfolio-chart-container mt-3">
+                <canvas id="portfolioChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aktív stratégiák kártya -->
+    <div class="card active-strategies-card">
+        <div class="card-header">
+            <h5 class="card-title">Aktív stratégiák</h5>
+            <div class="card-tools">
+                <a href="{{ url_for('main_bp.strategies') }}" class="btn btn-tool">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Stratégia</th>
+                            <th>Állapot</th>
+                            <th>Profit</th>
+                            <th>Kereskedések</th>
+                            <th>Műveletek</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for strategy in active_strategies %}
+                        <tr>
+                            <td>{{ strategy.name }}</td>
+                            <td>
+                                <span class="badge {% if strategy.status == 'active' %}bg-success{% elif strategy.status == 'paused' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {{ strategy.status }}
+                                </span>
+                            </td>
+                            <td class="{% if strategy.profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ strategy.profit|round(2) }}%
+                            </td>
+                            <td>{{ strategy.trades }}</td>
+                            <td>
+                                <a href="{{ url_for('main_bp.strategy_details', strategy_id=loop.index) }}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Piaci adatok kártya -->
+    <div class="card market-data-card">
+        <div class="card-header">
+            <h5 class="card-title">Piaci adatok</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Szimbólum</th>
+                            <th>Ár</th>
+                            <th>Változás</th>
+                            <th>Grafikon</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for market in market_data %}
+                        <tr>
+                            <td>{{ market.symbol }}</td>
+                            <td>${{ market.price|round(2) }}</td>
+                            <td class="{% if market.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ market.change|round(2) }}%
+                            </td>
+                            <td>
+                                <div class="sparkline" data-change="{{ market.change }}"></div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legutóbbi kereskedések kártya -->
+    <div class="card recent-trades-card">
+        <div class="card-header">
+            <h5 class="card-title">Legutóbbi kereskedések</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Időpont</th>
+                            <th>Szimbólum</th>
+                            <th>Típus</th>
+                            <th>Ár</th>
+                            <th>Mennyiség</th>
+                            <th>Stratégia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trade in recent_trades %}
+                        <tr>
+                            <td>{{ trade.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ trade.symbol }}</td>
+                            <td>
+                                <span class="badge {% if trade.side == 'buy' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ trade.side }}
+                                </span>
+                            </td>
+                            <td>${{ trade.price|round(2) }}</td>
+                            <td>{{ trade.quantity|round(4) }}</td>
+                            <td>{{ trade.strategy }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teljesítmény metrikák kártya -->
+    <div class="card performance-metrics-card">
+        <div class="card-header">
+            <h5 class="card-title">Teljesítmény metrikák</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for metric in performance_metrics %}
+                <div class="col-md-4">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-primary"><i class="fas fa-chart-line"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text">{{ metric.strategy }}</span>
+                            <span class="info-box-number">Sharpe: {{ metric.sharpe_ratio|round(2) }}</span>
+                            <span class="info-box-number">Win Rate: {{ metric.win_rate|round(1) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Portfólió grafikon
+        var ctx = document.getElementById('portfolioChart').getContext('2d');
+        var portfolioChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 30}, (_, i) => {
+                    var d = new Date();
+                    d.setDate(d.getDate() - 29 + i);
+                    return d.toLocaleDateString();
+                }),
+                datasets: [{
+                    label: 'Portfólió érték',
+                    data: Array.from({length: 30}, (_, i) => {
+                        // Szimulált adatok
+                        return 10000 * (1 + (Math.sin(i/5) * 0.02) + (i/100));
+                    }),
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        // Sparkline grafikonok
+        $('.sparkline').each(function() {
+            var change = $(this).data('change');
+            var color = change >= 0 ? 'rgba(40, 167, 69, 1)' : 'rgba(220, 53, 69, 1)';
+            
+            // Szimulált adatok
+            var data = [];
+            for (var i = 0; i < 20; i++) {
+                var value = 100 + (Math.sin(i/3) * 5) + (change * i / 10);
+                data.push(value);
+            }
+            
+            var sparkCtx = $('<canvas height="30"></canvas>').appendTo(this)[0].getContext('2d');
+            new Chart(sparkCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 20}, (_, i) => ''),
+                    datasets: [{
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        });
+
+        // Valós idejű frissítés
+        function updateSystemStatus() {
+            $.ajax({
+                url: '/api/system/status',
+                method: 'GET',
+                success: function(data) {
+                    // CPU használat frissítése
+                    $('.info-box:contains("CPU") .info-box-number').text(data.cpu_usage.toFixed(1) + '%');
+                    $('.info-box:contains("CPU") .progress-bar').css('width', data.cpu_usage + '%');
+                    
+                    // Memória használat frissítése
+                    $('.info-box:contains("Memória") .info-box-number').text(data.memory_usage.toFixed(1) + '%');
+                    $('.info-box:contains("Memória") .progress-bar').css('width', data.memory_usage + '%');
+                    
+                    // Tárhely használat frissítése
+                    $('.info-box:contains("Tárhely") .info-box-number').text(data.disk_usage.toFixed(1) + '%');
+                    $('.info-box:contains("Tárhely") .progress-bar').css('width', data.disk_usage + '%');
+                    
+                    // Trading Engine állapot frissítése
+                    var statusBadge = $('.system-status-card .badge');
+                    statusBadge.removeClass('bg-success bg-danger');
+                    statusBadge.addClass(data.trading_engine_status === 'running' ? 'bg-success' : 'bg-danger');
+                    statusBadge.text(data.trading_engine_status);
+                    
+                    // Trading Engine gomb frissítése
+                    var engineButton = $('.system-status-card button[type="submit"]');
+                    if (data.trading_engine_status === 'running') {
+                        engineButton.removeClass('btn-success').addClass('btn-danger');
+                        engineButton.html('<i class="fas fa-stop-circle"></i> Trading Engine leállítása');
+                        engineButton.prev('input[name="action"]').val('stop');
+                    } else {
+                        engineButton.removeClass('btn-danger').addClass('btn-success');
+                        engineButton.html('<i class="fas fa-play-circle"></i> Trading Engine indítása');
+                        engineButton.prev('input[name="action"]').val('start');
+                    }
+                }
+            });
+        }
+
+        // Értesítések frissítése
+        function updateNotifications() {
+            $.ajax({
+                url: '/api/notifications?unread_only=true&limit=5',
+                method: 'GET',
+                success: function(data) {
+                    // Értesítések számának frissítése
+                    var count = data.length;
+                    $('.navbar-nav .notifications-menu .badge').text(count);
+                    
+                    // Értesítések listájának frissítése
+                    var notificationsList = $('.navbar-nav .notifications-menu .dropdown-menu .notifications-list');
+                    notificationsList.empty();
+                    
+                    if (count > 0) {
+                        data.forEach(function(notification) {
+                            var icon = '';
+                            var bgClass = '';
+                            
+                            switch (notification.type) {
+                                case 'info':
+                                    icon = 'fa-info-circle';
+                                    bgClass = 'bg-info';
+                                    break;
+                                case 'warning':
+                                    icon = 'fa-exclamation-triangle';
+                                    bgClass = 'bg-warning';
+                                    break;
+                                case 'error':
+                                    icon = 'fa-times-circle';
+                                    bgClass = 'bg-danger';
+                                    break;
+                                case 'success':
+                                    icon = 'fa-check-circle';
+                                    bgClass = 'bg-success';
+                                    break;
+                            }
+                            
+                            var time = new Date(notification.timestamp).toLocaleTimeString();
+                            
+                            var notificationItem = `
+                                <a href="#" class="dropdown-item">
+                                    <div class="media">
+                                        <div class="media-left">
+                                            <i class="fas ${icon} ${bgClass}"></i>
+                                        </div>
+                                        <div class="media-body">
+                                            <p class="text-sm">${notification.message}</p>
+                                            <p class="text-sm text-muted"><i class="far fa-clock mr-1"></i> ${time}</p>
+                                        </div>
+                                    </div>
+                                </a>
+                                <div class="dropdown-divider"></div>
+                            `;
+                            
+                            notificationsList.append(notificationItem);
+                        });
+                        
+                        notificationsList.append(`
+                            <a href="${notificationsUrl}" class="dropdown-item dropdown-footer">Összes értesítés</a>
+                        `);
+                    } else {
+                        notificationsList.append(`
+                            <a href="#" class="dropdown-item">
+                                <p class="text-center">Nincsenek új értesítések</p>
+                            </a>
+                        `);
+                    }
+                }
+            });
+        }
+
+        // Piaci adatok frissítése
+        function updateMarketData() {
+            $.ajax({
+                url: '/api/market/list',
+                method: 'GET',
+                success: function(data) {
+                    var marketTable = $('.market-data-card table tbody');
+                    marketTable.empty();
+                    
+                    data.forEach(function(market) {
+                        var row = `
+                            <tr>
+                                <td>${market.symbol}</td>
+                                <td>$${market.price.toFixed(2)}</td>
+                                <td class="${market.change >= 0 ? 'text-success' : 'text-danger'}">
+                                    ${market.change.toFixed(2)}%
+                                </td>
+                                <td>
+                                    <div class="sparkline" data-change="${market.change}"></div>
+                                </td>
+                            </tr>
+                        `;
+                        
+                        marketTable.append(row);
+                    });
+                    
+                    // Sparkline grafikonok újragenerálása
+                    $('.sparkline').each(function() {
+                        var change = $(this).data('change');
+                        var color = change >= 0 ? 'rgba(40, 167, 69, 1)' : 'rgba(220, 53, 69, 1)';
+                        
+                        // Szimulált adatok
+                        var data = [];
+                        for (var i = 0; i < 20; i++) {
+                            var value = 100 + (Math.sin(i/3) * 5) + (change * i / 10);
+                            data.push(value);
+                        }
+                        
+                        $(this).empty();
+                        var sparkCtx = $('<canvas height="30"></canvas>').appendTo(this)[0].getContext('2d');
+                        new Chart(sparkCtx, {
+                            type: 'line',
+                            data: {
+                                labels: Array.from({length: 20}, (_, i) => ''),
+                                datasets: [{
+                                    data: data,
+                                    borderColor: color,
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 1.5,
+                                    pointRadius: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    },
+                                    tooltip: {
+                                        enabled: false
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        display: false
+                                    },
+                                    y: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+        }
+
+        // Időzített frissítések
+        var notificationsUrl = "{{ url_for('main_bp.notifications') }}";
+        setInterval(updateSystemStatus, 10000);  // 10 másodpercenként
+        setInterval(updateNotifications, 30000);  // 30 másodpercenként
+        setInterval(updateMarketData, 60000);    // 60 másodpercenként
+    });
+</script>
+{% endblock %}

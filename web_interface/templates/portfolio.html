@@ -1,0 +1,619 @@
+{% extends 'base.html' %}
+
+{% block title %}Portfólió - Advanced Trading System{% endblock %}
+
+{% block page_title %}Portfólió{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Portfólió</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Portfólió összefoglaló kártya -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Portfólió összefoglaló</h5>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-bs-toggle="tooltip" title="Frissítés" id="refreshPortfolio">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-primary"><i class="fas fa-wallet"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Teljes érték</span>
+                                <span class="info-box-number">${{ portfolio_summary.total_value|round(2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box">
+                            <span class="info-box-icon {% if portfolio_summary.total_pnl >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                <i class="fas {% if portfolio_summary.total_pnl >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            </span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Teljes P/L</span>
+                                <span class="info-box-number">{{ portfolio_summary.total_pnl|round(2) }} ({{ portfolio_summary.total_pnl_percent|round(2) }}%)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-info"><i class="fas fa-coins"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Eszközök száma</span>
+                                <span class="info-box-number">{{ portfolio_summary.asset_count }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-warning"><i class="fas fa-chart-line"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Teljesítmény</span>
+                                <span class="info-box-number">{{ performance.sharpe_ratio|round(2) }} Sharpe</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="chart-container">
+                            <canvas id="portfolioChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Portfólió eszközök kártya -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Portfólió eszközök</h5>
+                <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width: 150px;">
+                        <input type="text" name="table_search" class="form-control float-right" placeholder="Keresés...">
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-default">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover text-nowrap sortable-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="symbol">Eszköz</th>
+                            <th data-sort="amount">Mennyiség</th>
+                            <th data-sort="value_usd">Érték (USD)</th>
+                            <th data-sort="allocation">Allokáció (%)</th>
+                            <th data-sort="avg_price">Átlagár</th>
+                            <th data-sort="current_price">Jelenlegi ár</th>
+                            <th data-sort="pnl">P/L</th>
+                            <th data-sort="pnl_percent">P/L (%)</th>
+                            <th>Műveletek</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in portfolio_assets %}
+                        <tr>
+                            <td>{{ asset.symbol }}</td>
+                            <td>{{ asset.amount|round(6) }}</td>
+                            <td>${{ asset.value_usd|round(2) }}</td>
+                            <td>{{ asset.allocation|round(1) }}%</td>
+                            <td>${{ asset.avg_price|round(2) }}</td>
+                            <td>${{ asset.current_price|round(2) }}</td>
+                            <td class="{% if asset.pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ asset.pnl|round(2) }}
+                            </td>
+                            <td class="{% if asset.pnl_percent >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ asset.pnl_percent|round(2) }}%
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#buyModal" data-symbol="{{ asset.symbol }}">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#sellModal" data-symbol="{{ asset.symbol }}">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allokáció kártya -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Portfólió allokáció</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="allocationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teljesítmény metrikák kártya -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Teljesítmény metrikák</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-info"><i class="fas fa-chart-line"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Sharpe Ratio</span>
+                                <span class="info-box-number">{{ performance.sharpe_ratio|round(2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-success"><i class="fas fa-chart-area"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Sortino Ratio</span>
+                                <span class="info-box-number">{{ performance.sortino_ratio|round(2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-warning"><i class="fas fa-arrow-down"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Max Drawdown</span>
+                                <span class="info-box-number">{{ performance.max_drawdown|round(2) }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-primary"><i class="fas fa-percentage"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Win Rate</span>
+                                <span class="info-box-number">{{ performance.win_rate|round(1) }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kereskedési előzmények kártya -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Kereskedési előzmények</h5>
+                <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width: 150px;">
+                        <input type="text" name="table_search" class="form-control float-right" placeholder="Keresés...">
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-default">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover text-nowrap sortable-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="timestamp">Időpont</th>
+                            <th data-sort="symbol">Eszköz</th>
+                            <th data-sort="side">Típus</th>
+                            <th data-sort="price">Ár</th>
+                            <th data-sort="quantity">Mennyiség</th>
+                            <th data-sort="value">Érték</th>
+                            <th data-sort="strategy">Stratégia</th>
+                            <th data-sort="pnl">P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for trade in trade_history %}
+                        <tr>
+                            <td>{{ trade.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ trade.symbol }}</td>
+                            <td>
+                                <span class="badge {% if trade.side == 'buy' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ trade.side }}
+                                </span>
+                            </td>
+                            <td>${{ trade.price|round(2) }}</td>
+                            <td>{{ trade.quantity|round(6) }}</td>
+                            <td>${{ (trade.price * trade.quantity)|round(2) }}</td>
+                            <td>{{ trade.strategy }}</td>
+                            <td class="{% if trade.pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ trade.pnl|round(2) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer clearfix">
+                <ul class="pagination pagination-sm m-0 float-right">
+                    <li class="page-item"><a class="page-link" href="#">&laquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item"><a class="page-link" href="#">&raquo;</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vásárlás Modal -->
+<div class="modal fade" id="buyModal" tabindex="-1" aria-labelledby="buyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="buyModalLabel">Eszköz vásárlása</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="buyForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="buySymbol" class="form-label">Eszköz</label>
+                        <input type="text" class="form-control" id="buySymbol" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="buyPrice" class="form-label">Ár (USD)</label>
+                        <input type="number" class="form-control" id="buyPrice" step="0.01" required>
+                        <div class="invalid-feedback">
+                            Kérjük, adja meg az árat!
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="buyQuantity" class="form-label">Mennyiség</label>
+                        <input type="number" class="form-control" id="buyQuantity" step="0.000001" required>
+                        <div class="invalid-feedback">
+                            Kérjük, adja meg a mennyiséget!
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="buyTotal" class="form-label">Összesen (USD)</label>
+                        <input type="number" class="form-control" id="buyTotal" readonly>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Mégsem</button>
+                <button type="button" class="btn btn-primary" id="buySubmit">Vásárlás</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Eladás Modal -->
+<div class="modal fade" id="sellModal" tabindex="-1" aria-labelledby="sellModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sellModalLabel">Eszköz eladása</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sellForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="sellSymbol" class="form-label">Eszköz</label>
+                        <input type="text" class="form-control" id="sellSymbol" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sellPrice" class="form-label">Ár (USD)</label>
+                        <input type="number" class="form-control" id="sellPrice" step="0.01" required>
+                        <div class="invalid-feedback">
+                            Kérjük, adja meg az árat!
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sellQuantity" class="form-label">Mennyiség</label>
+                        <input type="number" class="form-control" id="sellQuantity" step="0.000001" required>
+                        <div class="invalid-feedback">
+                            Kérjük, adja meg a mennyiséget!
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sellTotal" class="form-label">Összesen (USD)</label>
+                        <input type="number" class="form-control" id="sellTotal" readonly>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Mégsem</button>
+                <button type="button" class="btn btn-danger" id="sellSubmit">Eladás</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Portfólió grafikon
+        var ctx = document.getElementById('portfolioChart').getContext('2d');
+        var portfolioChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 30}, (_, i) => {
+                    var d = new Date();
+                    d.setDate(d.getDate() - 29 + i);
+                    return d.toLocaleDateString();
+                }),
+                datasets: [{
+                    label: 'Portfólió érték',
+                    data: Array.from({length: 30}, (_, i) => {
+                        // Szimulált adatok
+                        return {{ portfolio_summary.total_value }} * (1 + (Math.sin(i/5) * 0.02) + (i/100));
+                    }),
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        // Allokáció grafikon
+        var allocationCtx = document.getElementById('allocationChart').getContext('2d');
+        var allocationChart = new Chart(allocationCtx, {
+            type: 'pie',
+            data: {
+                labels: [{% for asset in portfolio_assets %}'{{ asset.symbol }}',{% endfor %}],
+                datasets: [{
+                    data: [{% for asset in portfolio_assets %}{{ asset.allocation }},{% endfor %}],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(199, 199, 199, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(199, 199, 199, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+
+        // Vásárlás modal
+        $('#buyModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var symbol = button.data('symbol');
+            var modal = $(this);
+            
+            modal.find('#buySymbol').val(symbol);
+            
+            // Aktuális ár lekérése
+            var currentPrice = 0;
+            {% for asset in portfolio_assets %}
+            if (symbol === '{{ asset.symbol }}') {
+                currentPrice = {{ asset.current_price }};
+            }
+            {% endfor %}
+            
+            modal.find('#buyPrice').val(currentPrice);
+            
+            // Mennyiség és összeg számítás
+            $('#buyQuantity, #buyPrice').on('input', function() {
+                var price = parseFloat($('#buyPrice').val()) || 0;
+                var quantity = parseFloat($('#buyQuantity').val()) || 0;
+                $('#buyTotal').val((price * quantity).toFixed(2));
+            });
+        });
+
+        // Eladás modal
+        $('#sellModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var symbol = button.data('symbol');
+            var modal = $(this);
+            
+            modal.find('#sellSymbol').val(symbol);
+            
+            // Aktuális ár és mennyiség lekérése
+            var currentPrice = 0;
+            var maxQuantity = 0;
+            {% for asset in portfolio_assets %}
+            if (symbol === '{{ asset.symbol }}') {
+                currentPrice = {{ asset.current_price }};
+                maxQuantity = {{ asset.amount }};
+            }
+            {% endfor %}
+            
+            modal.find('#sellPrice').val(currentPrice);
+            modal.find('#sellQuantity').attr('max', maxQuantity);
+            
+            // Mennyiség és összeg számítás
+            $('#sellQuantity, #sellPrice').on('input', function() {
+                var price = parseFloat($('#sellPrice').val()) || 0;
+                var quantity = parseFloat($('#sellQuantity').val()) || 0;
+                $('#sellTotal').val((price * quantity).toFixed(2));
+            });
+        });
+
+        // Vásárlás végrehajtása
+        $('#buySubmit').on('click', function() {
+            var form = $('#buyForm')[0];
+            
+            if (form.checkValidity()) {
+                var data = {
+                    symbol: $('#buySymbol').val(),
+                    price: parseFloat($('#buyPrice').val()),
+                    quantity: parseFloat($('#buyQuantity').val()),
+                    side: 'buy'
+                };
+                
+                // AJAX kérés
+                $.ajax({
+                    url: '/api/trades/execute',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        if (response.success) {
+                            // Sikeres vásárlás
+                            $('#buyModal').modal('hide');
+                            
+                            // Értesítés megjelenítése
+                            var alert = `
+                                <div class="alert alert-success alert-dismissible fade show">
+                                    Sikeres vásárlás: ${data.quantity} ${data.symbol} $${data.price} áron.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `;
+                            $('.content-header').after(alert);
+                            
+                            // Oldal frissítése 2 másodperc múlva
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            // Hiba
+                            var alert = `
+                                <div class="alert alert-danger alert-dismissible fade show">
+                                    Hiba történt a vásárlás során: ${response.error}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `;
+                            $('#buyForm').before(alert);
+                        }
+                    },
+                    error: function() {
+                        // Hiba
+                        var alert = `
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                Hiba történt a vásárlás során!
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('#buyForm').before(alert);
+                    }
+                });
+            } else {
+                form.classList.add('was-validated');
+            }
+        });
+
+        // Eladás végrehajtása
+        $('#sellSubmit').on('click', function() {
+            var form = $('#sellForm')[0];
+            
+            if (form.checkValidity()) {
+                var data = {
+                    symbol: $('#sellSymbol').val(),
+                    price: parseFloat($('#sellPrice').val()),
+                    quantity: parseFloat($('#sellQuantity').val()),
+                    side: 'sell'
+                };
+                
+                // AJAX kérés
+                $.ajax({
+                    url: '/api/trades/execute',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        if (response.success) {
+                            // Sikeres eladás
+                            $('#sellModal').modal('hide');
+                            
+                            // Értesítés megjelenítése
+                            var alert = `
+                                <div class="alert alert-success alert-dismissible fade show">
+                                    Sikeres eladás: ${data.quantity} ${data.symbol} $${data.price} áron.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `;
+                            $('.content-header').after(alert);
+                            
+                            // Oldal frissítése 2 másodperc múlva
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            // Hiba
+                            var alert = `
+                                <div class="alert alert-danger alert-dismissible fade show">
+                                    Hiba történt az eladás során: ${response.error}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `;
+                            $('#sellForm').before(alert);
+                        }
+                    },
+                    error: function() {
+                        // Hiba
+                        var alert = `
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                Hiba történt az eladás során!
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('#sellForm').before(alert);
+                    }
+                });
+            } else {
+                form.classList.add('was-validated');
+            }
+        });
+
+        // Portfólió frissítése
+        $('#refreshPortfolio').on('click', function() {
+            location.reload();
+        });
+    });
+</script>
+{% endblock %}

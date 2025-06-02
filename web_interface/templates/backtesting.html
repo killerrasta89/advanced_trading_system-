@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}Backtesting - Advanced Trading System{% endblock %}
+
+{% block page_title %}Backtesting{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Backtesting</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Backtesting űrlap kártya -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Új backtesting</h5>
+            </div>
+            <div class="card-body">
+                <form id="backtestForm" class="needs-validation" novalidate>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="strategy" class="form-label">Stratégia</label>
+                                <select class="form-select" id="strategy" name="strategy_id" required>
+                                    <option value="" selected disabled>Válasszon stratégiát...</option>
+                                    {% for strategy in strategies %}
+                                    <option value="{{ strategy.id }}">{{ strategy.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Kérjük, válasszon stratégiát!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="symbol" class="form-label">Szimbólum</label>
+                                <select class="form-select" id="symbol" name="symbol" required>
+                                    <option value="" selected disabled>Válasszon szimbólumot...</option>
+                                    {% for symbol in symbols %}
+                                    <option value="{{ symbol }}">{{ symbol }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Kérjük, válasszon szimbólumot!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="timeframe" class="form-label">Időkeret</label>
+                                <select class="form-select" id="timeframe" name="timeframe" required>
+                                    <option value="" selected disabled>Válasszon időkeretet...</option>
+                                    {% for timeframe in timeframes %}
+                                    <option value="{{ timeframe }}">{{ timeframe }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Kérjük, válasszon időkeretet!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="start_date" class="form-label">Kezdő dátum</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" required>
+                                <div class="invalid-feedback">
+                                    Kérjük, adja meg a kezdő dátumot!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="end_date" class="form-label">Záró dátum</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" required>
+                                <div class="invalid-feedback">
+                                    Kérjük, adja meg a záró dátumot!
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="initial_capital" class="form-label">Kezdő tőke (USD)</label>
+                                <input type="number" class="form-control" id="initial_capital" name="initial_capital" value="10000" min="100" step="100" required>
+                                <div class="invalid-feedback">
+                                    Kérjük, adjon meg érvényes kezdő tőkét!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-primary" id="runBacktest">
+                                <i class="fas fa-play"></i> Backtesting indítása
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backtesting eredmények kártya -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Backtesting eredmények</h5>
+                <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width: 150px;">
+                        <input type="text" name="table_search" class="form-control float-right" placeholder="Keresés...">
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-default">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover text-nowrap sortable-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="id">ID</th>
+                            <th data-sort="strategy">Stratégia</th>
+                            <th data-sort="symbol">Szimbólum</th>
+                            <th data-sort="timeframe">Időkeret</th>
+                            <th data-sort="start_date">Kezdő dátum</th>
+                            <th data-sort="end_date">Záró dátum</th>
+                            <th data-sort="profit">Profit (%)</th>
+                            <th data-sort="sharpe_ratio">Sharpe</th>
+                            <th data-sort="max_drawdown">Max DD (%)</th>
+                            <th data-sort="win_rate">Win Rate (%)</th>
+                            <th>Műveletek</th>
+                        </tr>
+                    </thead>
+                    <tbody id="backtestResultsTable">
+                        {% for result in backtest_results %}
+                        <tr>
+                            <td>{{ result.id }}</td>
+                            <td>{{ result.strategy }}</td>
+                            <td>{{ result.symbol }}</td>
+                            <td>{{ result.timeframe }}</td>
+                            <td>{{ result.start_date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ result.end_date.strftime('%Y-%m-%d') }}</td>
+                            <td class="{% if result.profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ result.profit|round(2) }}%
+                            </td>
+                            <td>{{ result.sharpe_ratio|round(2) }}</td>
+                            <td>{{ result.max_drawdown|round(2) }}%</td>
+                            <td>{{ result.win_rate|round(1) }}%</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-info view-result" data-result-id="{{ result.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success deploy-strategy" data-result-id="{{ result.id }}">
+                                    <i class="fas fa-rocket"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backtesting eredmény részletek Modal -->
+<div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resultModalLabel">Backtesting eredmény részletek</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-primary"><i class="fas fa-chess"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Stratégia</span>
+                                <span class="info-box-number" id="resultStrategy"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-info"><i class="fas fa-coins"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Szimbólum</span>
+                                <span class="info-box-number" id="resultSymbol"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-success"><i class="fas fa-wallet"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Kezdő tőke</span>
+                                <span class="info-box-number" id="resultInitialCapital"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-box">
+                            <span class="info-box-icon bg-warning"><i class="fas fa-wallet"></i></span>
+                            <div class="info-box-content">
+                                <span class="info-box-text">Végső tőke</span>
+                                <span class="info-box-number" id="resultFinalCapital"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="chart-container">
+                            <canvas id="equityCurveChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Profit</span>
+                                <span class="info-box-number" id="resultProfit"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Sharpe Ratio</span>
+                                <span class="info-box-number" id="resultSharpe"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Max Drawdown</span>
+                                <span class="info-box-number" id="resultDrawdown"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Win Rate</span>
+                                <span class="info-box-number" id="resultWinRate"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Kereskedések</span>
+                                <span class="info-box-number" id="resultTrades"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Nyereséges</span>
+                                <span class="info-box-number" id="resultWinningTrades"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Veszteséges</span>
+                                <span class="info-box-number" id="resultLosingTrades"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="info-box bg-light">
+                            <div class="info-box-content">
+                                <span class="info-box-text">Profit Factor</span>
+                                <span class="info-box-number" id="resultProfitFactor"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bezárás</button>
+                <button type="button" class="btn btn-success" id="modalDeployStrategy">
+                    <i class="fas fa-rocket"></i> Stratégia telepítése
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Dátumok alapértelmezett beállítása
+        var today = new Date();
+        var oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(today.getMonth() - 1);
+        
+        $('#end_date').val(today.toISOString().split('T')[0]);
+        $('#start_date').val(oneMonthAgo.toISOString().split('T')[0]);
+        
+        // Backtesting űrlap beküldése
+        $('#backtestForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            var form = this;
+            
+            if (form.checkValidity()) {
+                // Adatok összegyűjtése
+                var formData = new FormData(form);
+                var data = {};
+                
+                for (const [key, value] of formData.entries()) {
+                    data[key] = value;
+                }
+                
+                // Gomb állapot módosítása
+                var submitButton = $('#runBacktest');
+                submitButton.prop('disabled', true);
+                submitButton.html('<i class="fas fa-spinner fa-spin"></i> Futtatás...');
+                
+                // AJAX kérés
+                $.ajax({
+                    url: '/api/backtesting/run',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        // Gomb visszaállítása
+                        submitButton.prop('disabled', false);
+                        submitButton.html('<i class="fas fa-play"></i> Backtesting indítása');
+                        
+                        // Eredmény hozzáadása a táblázathoz
+                        var newRow = `
+                            <tr>
+                                <td>${response.id}</td>
+                                <td>${response.strategy}</td>
+                                <td>${response.symbol}</td>
+                                <td>${response.timeframe}</td>
+                                <td>${response.start_date}</td>
+                                <td>${response.end_date}</td>
+                                <td class="${response.profit >= 0 ? 'text-success' : 'text-danger'}">
+                                    ${response.profit.toFixed(2)}%
+                                </td>
+                                <td>${response.sharpe_ratio.toFixed(2)}</td>
+                                <td>${response.max_drawdown.toFixed(2)}%</td>
+                                <td>${response.win_rate.toFixed(1)}%</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info view-result" data-result-id="${response.id}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-success deploy-strategy" data-result-id="${response.id}">
+                                        <i class="fas fa-rocket"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        
+                        $('#backtestResultsTable').prepend(newRow);
+                        
+                        // Értesítés megjelenítése
+                        var alert = `
+                            <div class="alert alert-success alert-dismissible fade show">
+                                Backtesting sikeresen lefutott: ${response.strategy} a(z) ${response.symbol} szimbólumon
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('.content-header').after(alert);
+                    },
+                    error: function() {
+                        // Gomb visszaállítása
+                        submitButton.prop('disabled', false);
+                        submitButton.html('<i class="fas fa-play"></i> Backtesting indítása');
+                        
+                        // Hiba
+                        var alert = `
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                Hiba történt a backtesting futtatása során!
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('.content-header').after(alert);
+                    }
+                });
+            } else {
+                form.classList.add('was-validated');
+            }
+        });
+        
+        // Eredmény részletek megjelenítése
+        $(document).on('click', '.view-result', function() {
+            var resultId = $(this).data('result-id');
+            
+            // Szimulált adatok (valós rendszerben AJAX kérés lenne)
+            var result = {
+                id: resultId,
+                strategy: "Grid Trading",
+                symbol: "BTC/USDT",
+                timeframe: "1h",
+                start_date: "2025-05-01",
+                end_date: "2025-06-01",
+                initial_capital: 10000,
+                final_capital: 10250,
+                profit: 2.5,
+                max_drawdown: 1.2,
+                sharpe_ratio: 1.8,
+                sortino_ratio: 2.1,
+                trades: 12,
+                winning_trades: 9,
+                losing_trades: 3,
+                win_rate: 75.0,
+                profit_factor: 2.3,
+                equity_curve: Array.from({length: 30}, (_, i) => {
+                    return 10000 * (1 + (i/100) * 2.5/30);
+                })
+            };
+            
+            // Adatok megjelenítése
+            $('#resultStrategy').text(result.strategy);
+            $('#resultSymbol').text(result.symbol);
+            $('#resultInitialCapital').text('$' + result.initial_capital.toFixed(2));
+            $('#resultFinalCapital').text('$' + result.final_capital.toFixed(2));
+            $('#resultProfit').text(result.profit.toFixed(2) + '%');
+            $('#resultSharpe').text(result.sharpe_ratio.toFixed(2));
+            $('#resultDrawdown').text(result.max_drawdown.toFixed(2) + '%');
+            $('#resultWinRate').text(result.win_rate.toFixed(1) + '%');
+            $('#resultTrades').text(result.trades);
+            $('#resultWinningTrades').text(result.winning_trades);
+            $('#resultLosingTrades').text(result.losing_trades);
+            $('#resultProfitFactor').text(result.profit_factor.toFixed(2));
+            
+            // Profit színezése
+            $('#resultProfit').removeClass('text-success text-danger');
+            $('#resultProfit').addClass(result.profit >= 0 ? 'text-success' : 'text-danger');
+            
+            // Equity görbe grafikon
+            var ctx = document.getElementById('equityCurveChart').getContext('2d');
+            
+            // Meglévő grafikon törlése, ha van
+            if (window.equityCurveChart) {
+                window.equityCurveChart.destroy();
+            }
+            
+            // Új grafikon létrehozása
+            window.equityCurveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: result.equity_curve.length}, (_, i) => {
+                        var d = new Date(result.start_date);
+                        d.setDate(d.getDate() + i);
+                        return d.toLocaleDateString();
+                    }),
+                    datasets: [{
+                        label: 'Equity görbe',
+                        data: result.equity_curve,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+            
+            // Deploy gomb beállítása
+            $('#modalDeployStrategy').data('result-id', resultId);
+            
+            // Modal megjelenítése
+            $('#resultModal').modal('show');
+        });
+        
+        // Stratégia telepítése
+        $(document).on('click', '.deploy-strategy, #modalDeployStrategy', function() {
+            var resultId = $(this).data('result-id');
+            
+            // AJAX kérés (szimulált)
+            setTimeout(function() {
+                // Értesítés megjelenítése
+                var alert = `
+                    <div class="alert alert-success alert-dismissible fade show">
+                        A stratégia sikeresen telepítve lett! Megtekintheti a Stratégiák oldalon.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+                $('.content-header').after(alert);
+                
+                // Modal bezárása, ha nyitva van
+                $('#resultModal').modal('hide');
+            }, 1000);
+        });
+    });
+</script>
+{% endblock %}
