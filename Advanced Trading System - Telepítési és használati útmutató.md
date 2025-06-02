@@ -14,6 +14,9 @@ git clone https://github.com/yourusername/advanced_trading_system.git
 cd advanced_trading_system
 ```
 
+
+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
+
 ### 2. Függőségek telepítése
 ```bash
 # Virtuális környezet létrehozása
